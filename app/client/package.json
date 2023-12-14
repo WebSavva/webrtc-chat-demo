@@ -17,6 +17,7 @@
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
     "vue-tsc": "^1.8.25",
-    "stylus": "^0.62.0"
+    "stylus": "^0.62.0",
+    "@webrtc-chat/types": "workspace:*"
   }
 }

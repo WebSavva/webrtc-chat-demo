@@ -20,6 +20,9 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^4.5.2
         version: 4.5.2(vite@5.0.8)(vue@3.3.11)
+      '@webrtc-chat/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       stylus:
         specifier: ^0.62.0
         version: 0.62.0

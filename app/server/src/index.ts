@@ -15,8 +15,6 @@ import { User, database } from './database';
 const app = express();
 const httpServer = createServer(app);
 
-console.log(process.env.NODE_ENV);
-
 const io = new Server(
   httpServer,
   isProduction
@@ -151,6 +149,17 @@ setInterval(() => {
     user.socket.emit('conversation:establishing', {
       isInitiator: !!index,
       conversation,
+    });
+
+    [
+      'conversation:answer',
+      'conversation:offer',
+      'conversation:candidate:offer',
+      'conversation:candidate:offer',
+    ].forEach((eventName) => {
+      user.socket.on(eventName, (...args) => {
+        user.socket.broadcast.to(conversationId).emit(eventName, ...args);
+      });
     });
   });
 }, 1e3);

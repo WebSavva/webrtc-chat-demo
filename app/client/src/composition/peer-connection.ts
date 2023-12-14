@@ -12,15 +12,15 @@ const DEFAULT_CONFIGURATIONS = {
 export const usePeerConnection = (
   config: RTCConfiguration = DEFAULT_CONFIGURATIONS,
 ) => {
-  let pc: RTCPeerConnection | null = null;
+  const pc = shallowRef<RTCPeerConnection | null>(null);
 
   function startPeerConnection() {
-    pc = new RTCPeerConnection(config);
+    pc.value = new RTCPeerConnection(config);
   }
 
   function resetPeerConnection() {
-    pc?.close();
-    pc = null;
+    pc.value?.close();
+    pc.value = null;
   }
 
   return {
