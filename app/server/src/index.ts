@@ -1,18 +1,37 @@
-import { Server } from 'socket.io';
+import { createServer } from 'http';
 
+import express from 'express';
+import { Server } from 'socket.io';
+import { isProduction } from 'std-env';
 import {
   CONVERTATION_STATUS,
-  Conversation,
+  type Conversation,
   USER_STATUS,
-  database,
-} from './database';
+} from '@webrtc-chat/types';
 
-const io = new Server();
+import { User, database } from './database';
+
+// server initialization
+const app = express();
+const httpServer = createServer(app);
+
+console.log(process.env.NODE_ENV);
+
+const io = new Server(
+  httpServer,
+  isProduction
+    ? undefined
+    : {
+        cors: {
+          origin: '*',
+        },
+      },
+);
 
 io.on('connection', (socket) => {
   const userId = socket.id;
 
-  const user = {
+  const user: User = {
     id: userId,
     status: USER_STATUS.IDLE,
     socket,
@@ -26,28 +45,62 @@ io.on('connection', (socket) => {
 
   socket.on('conversation:search', () => {
     if (user.status !== USER_STATUS.IDLE) return;
-    
+
     user.status = USER_STATUS.SEARCHING;
+  });
+
+  socket.on('conversation:start', () => {
+    const activeConversation = database.conversations.get(
+      user.activeConversationId,
+    );
+
+    activeConversation.status = CONVERTATION_STATUS.ACTIVE;
+
+    socket.broadcast.to(activeConversation.id).emit('conversation:start', {
+      conversation: activeConversation,
+    });
+  });
+
+  socket.on('conversation:end', () => {
+    const activeConversation = database.conversations.get(
+      user.activeConversationId,
+    );
+
+    activeConversation.status = CONVERTATION_STATUS.SUCCESS;
+    activeConversation.endedAt = new Date();
+
+    user.socket.broadcast.to(activeConversation.id).emit('conversation:end', {
+      conversation: activeConversation,
+    });
+
+    [activeConversation.initiatorId, activeConversation.receiverId].forEach(
+      (userId) => {
+        const currentParticipant = database.users.get(userId);
+
+        if (!currentParticipant) return;
+
+        currentParticipant.activeConversationId = null;
+        currentParticipant.status = USER_STATUS.IDLE;
+      },
+    );
   });
 
   database.users.set(userId, user);
 
-  socket.on('disconnect', () => {
+  socket.on('disconnecting', () => {
     database.users.delete(userId);
 
     // canceling ongoing conversation if it exists
-    const activeConversation = [...database.conversations.values()].find(
-      ({ initiatorId, status, receiverId }) => {
-        return (
-          [
-            CONVERTATION_STATUS.ACTIVE,
-            CONVERTATION_STATUS.ESTABLISHING,
-          ].includes(status) && [initiatorId, receiverId].includes(userId)
-        );
-      },
+    const activeConversation = database.conversations.get(
+      user.activeConversationId,
     );
 
-    if (activeConversation) {
+    if (
+      activeConversation &&
+      [CONVERTATION_STATUS.ESTABLISHING, CONVERTATION_STATUS.ACTIVE].includes(
+        activeConversation.status,
+      )
+    ) {
       activeConversation.endedAt = new Date();
       activeConversation.status = CONVERTATION_STATUS.FAILED;
 
@@ -57,22 +110,17 @@ io.on('connection', (socket) => {
           : activeConversation.initiatorId,
       );
 
-      anotherParticipant.socket.leave(activeConversation.id);
-
       anotherParticipant.status = USER_STATUS.IDLE;
+      anotherParticipant.activeConversationId = null;
 
-      console.log(anotherParticipant);
-
-      anotherParticipant.socket.emit('conversation:end', {
-        converation: activeConversation,
+      anotherParticipant.socket.emit('conversation:failure', {
+        conversation: activeConversation,
       });
     }
 
     console.log('USER HAS LEFT', userId);
   });
 });
-
-io.listen(3000);
 
 setInterval(() => {
   const [initiator, receiver] = [...database.users.values()]
@@ -98,12 +146,15 @@ setInterval(() => {
     user.status = USER_STATUS.SPEAKING;
 
     user.socket.join(conversationId);
+    user.activeConversationId = conversationId;
 
-    user.socket.emit('conversation:start', {
+    user.socket.emit('conversation:establishing', {
       isInitiator: !!index,
       conversation,
     });
   });
 }, 1e3);
 
-console.log('SIGNALING SERVER IS UP AND RUNNING !');
+httpServer.listen(3000, () => {
+  console.log('SIGNALING SERVER IS UP AND RUNNING !');
+});
