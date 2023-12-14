@@ -1,18 +1,15 @@
 <template>
   <div class="conversation">
-    <div class="conversation__screens">
-      <span class="conversation__screens__screen">
-        <h3>Me</h3>
-
-        <video ref="myScreen" autoplay playsinline />
-      </span>
-
-      <span class="conversation__screens__screen">
-        <h3>Partner</h3>
-
-        <video ref="partnerScreen" autoplay playsinline />
-      </span>
+    <div>
+      <p v-for="({ text }, index) in messages" :key="index">
+        {{ text }}
+      </p>
     </div>
+
+    <form @submit.prevent="onMessageSend">
+      <textarea v-model="messageText" />
+      <button type="submit">Send</button>
+    </form>
 
     <button
       v-if="currentStatus !== USER_STATUS.SPEAKING"
@@ -36,13 +33,29 @@ import { type Conversation, USER_STATUS } from '@webrtc-chat/types';
 
 import { usePeerConnection } from './composition/peer-connection';
 
-const myScreen = ref<HTMLVideoElement | null>(null);
-const partnerScreen = ref<HTMLVideoElement | null>();
-
-let myScreenStream: MediaStream | null = null;
-let partnerScreenStream: MediaStream | null = null;
-
 const currentStatus = ref<USER_STATUS>(USER_STATUS.IDLE);
+
+interface Message {
+  isMine: boolean;
+  text: string;
+}
+
+const messages = ref<Message[]>([]);
+
+const messageText = ref('');
+
+let messagesChannel: RTCDataChannel;
+
+function onMessageSend() {
+  messagesChannel.send(messageText.value);
+
+  messages.value.push({
+    isMine: true,
+    text: messageText.value,
+  });
+
+  messageText.value = '';
+}
 
 const {
   pc,
@@ -60,8 +73,10 @@ function onSearchConversation() {
 
 function startListeningToServer() {
   socket = io('http://127.0.0.1:3000');
-  
+
   socket.on('connect', () => {
+    console.log('Connected');
+
     socket.on(
       'conversation:establishing',
       async ({
@@ -74,22 +89,16 @@ function startListeningToServer() {
 
         startPeerConnection();
 
-        myScreenStream!.getTracks().forEach((track) => {
-          pc.value!.addTrack(track, myScreenStream!);
-        }); 
-
-        console.log({
-          isInitiator
-        });
-
-        // Pull tracks from remote stream, add to video stream
-        pc.value!.ontrack = (event) => {
-          event.streams[0].getTracks().forEach((track) => {
-            partnerScreenStream!.addTrack(track);
-          });
-        };
-
         if (isInitiator) {
+          messagesChannel = pc.value!.createDataChannel('messages');
+
+          messagesChannel.onmessage = (event) => {
+            messages.value.push({
+              isMine: false,
+              text: event.data,
+            });
+          };
+
           const offer = await pc.value!.createOffer();
 
           pc.value!.setLocalDescription(offer);
@@ -104,6 +113,16 @@ function startListeningToServer() {
             }
           });
         } else {
+          pc.value!.ondatachannel = ({ channel }) => {
+            messagesChannel = channel;
+
+            messagesChannel.onmessage = ({ data: text }) =>
+              messages.value.push({
+                isMine: false,
+                text,
+              });
+          };
+          
           socket.on('conversation:offer', async (offer) => {
             await pc.value!.setRemoteDescription(
               new RTCSessionDescription(offer),
@@ -143,26 +162,7 @@ function startListeningToServer() {
   });
 }
 
-async function startScreensTranslation() {
-  myScreenStream = await navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: true,
-  });
-
-  if (!myScreen.value) return;
-
-  myScreen.value.srcObject = myScreenStream;
-
-  partnerScreenStream = new MediaStream();
-
-  if (!partnerScreen.value) return;
-
-  partnerScreen.value.srcObject = partnerScreenStream;
-}
-
 onMounted(async () => {
-  await startScreensTranslation();
-
   startListeningToServer();
 });
 </script>
@@ -174,25 +174,6 @@ onMounted(async () => {
   padding 1rem 5rem
   max-width 1400px
   margin 0 auto
-
-  &__screens
-    display flex
-    gap 1rem
-    justify-content space-between
-
-    &__screen
-      flex 0 0 45%
-      display flex
-      flex-direction column
-
-      h3
-        font-size 2.2rem
-        text-align center
-
-      video
-        border-radius 15px
-        background gray
-        flex 1
 
   &__btn
     margin-top 7rem
