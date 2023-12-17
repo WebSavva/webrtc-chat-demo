@@ -16,23 +16,31 @@
 
     <button
       v-if="currentStatus !== USER_STATUS.SPEAKING"
-      :disabled="currentStatus === USER_STATUS.SEARCHING"
+      :disabled="!isSocketConnected"
       class="conversation__btn conversation__btn_search"
-      @click="onSearchConversation"
+      @click="onToggleSearchConversation"
     >
-      Search
+      {{ isSearching ? 'Stop' : 'Start' }} search
     </button>
 
-    <button v-else class="conversation__btn conversation__btn_stop">
+    <button
+      v-else
+      class="conversation__btn conversation__btn_stop"
+      @click="onStopConversation"
+    >
       Stop
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { io, type Socket } from 'socket.io-client';
-import { type Conversation, USER_STATUS } from '@webrtc-chat/types';
+import {
+  USER_STATUS,
+  SOCKET_EVENT_NAME,
+  type SocketClientEventsMap,
+} from '@webrtc-chat/types';
 
 import { usePeerConnection } from './composition/peer-connection';
 
@@ -43,6 +51,7 @@ let myScreenStream: MediaStream | null = null;
 let partnerScreenStream: MediaStream | null = null;
 
 const currentStatus = ref<USER_STATUS>(USER_STATUS.IDLE);
+const isSocketConnected = ref(false);
 
 const {
   pc,
@@ -51,52 +60,93 @@ const {
   resetPeerConnection,
 } = usePeerConnection();
 
-let socket: Socket;
+let socket: Socket<SocketClientEventsMap>;
 
-function onSearchConversation() {
-  socket.emit('conversation:search');
-  currentStatus.value = USER_STATUS.SEARCHING;
+const isSearching = computed(
+  () => currentStatus.value === USER_STATUS.SEARCHING,
+);
+
+function resetConversation() {
+  // removing all socket listeners
+  [
+    SOCKET_EVENT_NAME.CONVERSATION_ANSWER,
+    SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_ANSWER,
+    SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_OFFER,
+    SOCKET_EVENT_NAME.CONVERSATION_END,
+    SOCKET_EVENT_NAME.CONVERSATION_ESTABLISHING,
+    SOCKET_EVENT_NAME.CONVERSATION_FAILURE,
+    SOCKET_EVENT_NAME.CONVERSATION_OFFER,
+    SOCKET_EVENT_NAME.CONVERSATION_START,
+  ].forEach((eventName) => {
+    socket.removeAllListeners(eventName);
+  });
+
+  // closing peer connection
+  resetPeerConnection();
+
+  // reseting partner's screen
+  partnerScreenStream = null;
+
+  partnerScreen.value!.srcObject = partnerScreenStream;
+
+  // updating status to idle
+  currentStatus.value = USER_STATUS.IDLE;
 }
 
-function startListeningToServer() {
-  socket = io('http://127.0.0.1:3000');
-  
-  socket.on('connect', () => {
-    socket.on(
-      'conversation:establishing',
-      async ({
-        isInitiator,
-      }: {
-        conversation: Conversation;
-        isInitiator: boolean;
-      }) => {
+function onStopConversation() {
+  socket.emit(SOCKET_EVENT_NAME.CONVERSATION_END);
+
+  resetConversation();
+}
+
+function onFailureConversation() {
+  alert('Conversation has failed !');
+
+  resetConversation();
+}
+
+function onToggleSearchConversation() {
+  if (currentStatus.value === USER_STATUS.SEARCHING) {
+    // triggering end of the conversation search
+    socket.emit(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_END);
+
+    currentStatus.value = USER_STATUS.IDLE;
+  } else {
+    socket.once(
+      SOCKET_EVENT_NAME.CONVERSATION_ESTABLISHING,
+      async ({ isInitiator }) => {
+        // updating user status to SPEAKING
         currentStatus.value = USER_STATUS.SPEAKING;
 
+        // starting peer connection
         startPeerConnection();
 
-        myScreenStream!.getTracks().forEach((track) => {
-          pc.value!.addTrack(track, myScreenStream!);
-        }); 
+        // setting up partner's screen
+        partnerScreenStream = new MediaStream();
 
-        console.log({
-          isInitiator
-        });
+        partnerScreen.value!.srcObject = partnerScreenStream;
 
-        // Pull tracks from remote stream, add to video stream
         pc.value!.ontrack = (event) => {
           event.streams[0].getTracks().forEach((track) => {
             partnerScreenStream!.addTrack(track);
           });
         };
 
+        // passing my screen's tracks to peer connection
+        myScreenStream!.getTracks().forEach((track) => {
+          pc.value!.addTrack(track, myScreenStream!);
+        });
+
+        // attaching socket socket listeners
+        // depending on the side type of the speaker
         if (isInitiator) {
           const offer = await pc.value!.createOffer();
 
           pc.value!.setLocalDescription(offer);
 
-          socket.emit('conversation:offer', offer);
+          socket.emit(SOCKET_EVENT_NAME.CONVERSATION_OFFER, offer);
 
-          socket.on('conversation:answer', (answer: any) => {
+          socket.once(SOCKET_EVENT_NAME.CONVERSATION_ANSWER, (answer) => {
             if (!pc.value!.currentRemoteDescription && answer) {
               const answerDescription = new RTCSessionDescription(answer);
 
@@ -104,7 +154,7 @@ function startListeningToServer() {
             }
           });
         } else {
-          socket.on('conversation:offer', async (offer) => {
+          socket.once(SOCKET_EVENT_NAME.CONVERSATION_OFFER, async (offer) => {
             await pc.value!.setRemoteDescription(
               new RTCSessionDescription(offer),
             );
@@ -112,38 +162,74 @@ function startListeningToServer() {
             const answer = await pc.value!.createAnswer();
             await pc.value!.setLocalDescription(answer);
 
-            socket.emit('conversation:answer', answer);
+            socket.emit(SOCKET_EVENT_NAME.CONVERSATION_ANSWER, answer);
           });
         }
 
+        // attaching ice candidate listeners
         pc.value!.onicecandidate = ({ candidate }) => {
           if (!candidate) return;
 
           socket.emit(
-            `conversation:candidate:${isInitiator ? 'offer' : 'answer'}`,
+            isInitiator
+              ? SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_OFFER
+              : SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_ANSWER,
             candidate,
           );
         };
 
         socket.on(
-          `conversation:candidate:${isInitiator ? 'answer' : 'offer'}`,
+          isInitiator
+            ? SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_ANSWER
+            : SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_OFFER,
           (answerCandidate) => {
             const candidate = new RTCIceCandidate(answerCandidate);
             pc.value!.addIceCandidate(candidate);
           },
         );
 
+        socket.once(SOCKET_EVENT_NAME.CONVERSATION_END, resetConversation);
+        socket.once(
+          SOCKET_EVENT_NAME.CONVERSATION_FAILURE,
+          onFailureConversation,
+        );
+
+        // crucial logic that triggers start or failure of a conversation
         pc.value!.onconnectionstatechange = () => {
-          if (pc.value!.connectionState == 'connected') {
-            socket.emit('conversation:start');
+          switch (pc.value!.connectionState) {
+            case 'connected':
+              return socket.emit(SOCKET_EVENT_NAME.CONVERSATION_START);
+
+            case 'failed':
+              onFailureConversation();
+
+              return socket.emit(SOCKET_EVENT_NAME.CONVERSATION_FAILURE);
           }
         };
       },
     );
+
+    // triggering start of the conversation search
+    socket.emit(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_START);
+
+    currentStatus.value = USER_STATUS.SEARCHING;
+  }
+}
+
+function startListeningToServer() {
+  // if (import.meta.env.PROD) {
+  //   socket = io();
+  // } else {
+  //   socket = io('ws://127.0.0.1:3000');
+  // }
+  
+  socket = io('ws://127.0.0.1:3000');
+  socket.on('connect', () => {
+    isSocketConnected.value = true;
   });
 }
 
-async function startScreensTranslation() {
+async function startMyScreenTranslation() {
   myScreenStream = await navigator.mediaDevices.getUserMedia({
     video: true,
     audio: true,
@@ -152,16 +238,10 @@ async function startScreensTranslation() {
   if (!myScreen.value) return;
 
   myScreen.value.srcObject = myScreenStream;
-
-  partnerScreenStream = new MediaStream();
-
-  if (!partnerScreen.value) return;
-
-  partnerScreen.value.srcObject = partnerScreenStream;
 }
 
 onMounted(async () => {
-  await startScreensTranslation();
+  await startMyScreenTranslation();
 
   startListeningToServer();
 });
@@ -214,5 +294,5 @@ onMounted(async () => {
       background #37c037
 
     &_stop
-      background ref
+      background #f00
 </style>

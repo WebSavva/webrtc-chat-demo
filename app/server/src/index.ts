@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import { join } from 'path';
 
 import express from 'express';
 import { Server } from 'socket.io';
@@ -7,6 +8,8 @@ import {
   CONVERTATION_STATUS,
   type Conversation,
   USER_STATUS,
+  type SocketServerEventsMap,
+  SOCKET_EVENT_NAME,
 } from '@webrtc-chat/types';
 
 import { User, database } from './database';
@@ -15,7 +18,14 @@ import { User, database } from './database';
 const app = express();
 const httpServer = createServer(app);
 
-const io = new Server(
+const CONVERSATION_SCOPE_EVENT_NAMES = [
+  SOCKET_EVENT_NAME.CONVERSATION_OFFER,
+  SOCKET_EVENT_NAME.CONVERSATION_ANSWER,
+  SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_ANSWER,
+  SOCKET_EVENT_NAME.CONVERSATION_CANDIDATE_OFFER,
+] as const;
+
+const io = new Server<SocketServerEventsMap>(
   httpServer,
   isProduction
     ? undefined
@@ -26,40 +36,24 @@ const io = new Server(
       },
 );
 
-io.on('connection', (socket) => {
-  const userId = socket.id;
+function setupConversationListeners(user: User) {
+  const { socket } = user;
 
-  const user: User = {
-    id: userId,
-    status: USER_STATUS.IDLE,
-    socket,
-  };
-
-  console.log('USER HAS JOINED', userId);
-
-  socket.emit('greeting', {
-    message: 'Hello World',
-  });
-
-  socket.on('conversation:search', () => {
-    if (user.status !== USER_STATUS.IDLE) return;
-
-    user.status = USER_STATUS.SEARCHING;
-  });
-
-  socket.on('conversation:start', () => {
+  socket.once(SOCKET_EVENT_NAME.CONVERSATION_START, () => {
     const activeConversation = database.conversations.get(
       user.activeConversationId,
     );
 
     activeConversation.status = CONVERTATION_STATUS.ACTIVE;
 
-    socket.broadcast.to(activeConversation.id).emit('conversation:start', {
-      conversation: activeConversation,
-    });
+    socket.broadcast
+      .to(activeConversation.id)
+      .emit(SOCKET_EVENT_NAME.CONVERSATION_START, {
+        conversation: activeConversation,
+      });
   });
 
-  socket.on('conversation:end', () => {
+  socket.once(SOCKET_EVENT_NAME.CONVERSATION_END, () => {
     const activeConversation = database.conversations.get(
       user.activeConversationId,
     );
@@ -67,9 +61,11 @@ io.on('connection', (socket) => {
     activeConversation.status = CONVERTATION_STATUS.SUCCESS;
     activeConversation.endedAt = new Date();
 
-    user.socket.broadcast.to(activeConversation.id).emit('conversation:end', {
-      conversation: activeConversation,
-    });
+    user.socket.broadcast
+      .to(activeConversation.id)
+      .emit(SOCKET_EVENT_NAME.CONVERSATION_END, {
+        conversation: activeConversation,
+      });
 
     [activeConversation.initiatorId, activeConversation.receiverId].forEach(
       (userId) => {
@@ -83,7 +79,77 @@ io.on('connection', (socket) => {
     );
   });
 
+  socket.once(SOCKET_EVENT_NAME.CONVERSATION_FAILURE, () => {
+    const activeConversation = database.conversations.get(
+      user.activeConversationId,
+    );
+
+    user.socket.broadcast
+      .to(activeConversation.id)
+      .emit(SOCKET_EVENT_NAME.CONVERSATION_FAILURE, {
+        conversation: activeConversation,
+      });
+
+    [activeConversation.initiatorId, activeConversation.receiverId].forEach(
+      (userId) => {
+        const user = database.users.get(userId);
+
+        user.activeConversationId = null;
+        user.status = USER_STATUS.IDLE;
+
+        activeConversation.status = CONVERTATION_STATUS.FAILED;
+
+        cleanupConversationListeners(user);
+      },
+    );
+  });
+
+  // retargeting all conversation-scope events
+  // such as conversation:offer and so on
+  CONVERSATION_SCOPE_EVENT_NAMES.forEach((eventName) => {
+    user.socket.on(eventName, (...args: any[]) => {
+      user.socket.broadcast
+        .to(user.activeConversationId)
+        .emit(eventName, ...(args as any));
+    });
+  });
+}
+
+function cleanupConversationListeners(user: User) {
+  const { socket } = user;
+
+  [
+    ...CONVERSATION_SCOPE_EVENT_NAMES,
+    SOCKET_EVENT_NAME.CONVERSATION_FAILURE,
+    SOCKET_EVENT_NAME.CONVERSATION_START,
+    SOCKET_EVENT_NAME.CONVERSATION_END,
+  ].forEach((eventName) => socket.removeAllListeners(eventName));
+}
+
+io.on('connection', (socket) => {
+  const userId = socket.id;
+
+  const user: User = {
+    id: userId,
+    status: USER_STATUS.IDLE,
+    socket,
+  };
+
+  console.log('USER HAS JOINED', userId);
+
   database.users.set(userId, user);
+
+  socket.on(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_START, () => {
+    if (user.status !== USER_STATUS.IDLE) return;
+
+    user.status = USER_STATUS.SEARCHING;
+  });
+
+  socket.on(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_END, () => {
+    if (user.status !== USER_STATUS.SEARCHING) return;
+
+    user.status = USER_STATUS.IDLE;
+  });
 
   socket.on('disconnecting', () => {
     database.users.delete(userId);
@@ -99,8 +165,17 @@ io.on('connection', (socket) => {
         activeConversation.status,
       )
     ) {
+      const isEstablishing =
+        activeConversation.status === CONVERTATION_STATUS.ESTABLISHING;
+
       activeConversation.endedAt = new Date();
-      activeConversation.status = CONVERTATION_STATUS.FAILED;
+
+      // if user disconnects while conversation is being established
+      // then failure event should be triggered
+      // otherwise it's deemed as successful
+      activeConversation.status = isEstablishing
+        ? CONVERTATION_STATUS.FAILED
+        : CONVERTATION_STATUS.SUCCESS;
 
       const anotherParticipant = database.users.get(
         userId === activeConversation.initiatorId
@@ -111,9 +186,16 @@ io.on('connection', (socket) => {
       anotherParticipant.status = USER_STATUS.IDLE;
       anotherParticipant.activeConversationId = null;
 
-      anotherParticipant.socket.emit('conversation:failure', {
-        conversation: activeConversation,
-      });
+      anotherParticipant.socket.emit(
+        isEstablishing
+          ? SOCKET_EVENT_NAME.CONVERSATION_FAILURE
+          : SOCKET_EVENT_NAME.CONVERSATION_END,
+        {
+          conversation: activeConversation,
+        },
+      );
+
+      cleanupConversationListeners(anotherParticipant);
     }
 
     console.log('USER HAS LEFT', userId);
@@ -146,20 +228,11 @@ setInterval(() => {
     user.socket.join(conversationId);
     user.activeConversationId = conversationId;
 
-    user.socket.emit('conversation:establishing', {
+    setupConversationListeners(user);
+
+    user.socket.emit(SOCKET_EVENT_NAME.CONVERSATION_ESTABLISHING, {
       isInitiator: !!index,
       conversation,
-    });
-
-    [
-      'conversation:answer',
-      'conversation:offer',
-      'conversation:candidate:offer',
-      'conversation:candidate:offer',
-    ].forEach((eventName) => {
-      user.socket.on(eventName, (...args) => {
-        user.socket.broadcast.to(conversationId).emit(eventName, ...args);
-      });
     });
   });
 }, 1e3);
