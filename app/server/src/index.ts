@@ -21,7 +21,7 @@ async function main() {
 
   await sequelize.sync({
     force: true,
-  })
+  });
 
   // server initialization
   const app = express();
@@ -90,6 +90,8 @@ async function main() {
     }
 
     socket.once(SOCKET_EVENT_NAME.CONVERSATION_START, async () => {
+      await activeConversation.reload();
+      
       activeConversation.status = CONVERTATION_STATUS.ACTIVE;
 
       await activeConversation.save();
@@ -102,6 +104,8 @@ async function main() {
     });
 
     socket.once(SOCKET_EVENT_NAME.CONVERSATION_END, async () => {
+      await activeConversation.reload();
+
       activeConversation.status = CONVERTATION_STATUS.SUCCESS;
       activeConversation.endedAt = new Date();
 
@@ -117,6 +121,8 @@ async function main() {
     });
 
     socket.once(SOCKET_EVENT_NAME.CONVERSATION_FAILURE, async () => {
+      await activeConversation.reload();
+
       activeConversation.status = CONVERTATION_STATUS.FAILED;
       activeConversation.endedAt = new Date();
 
@@ -164,6 +170,8 @@ async function main() {
     console.log('USER HAS JOINED', userId);
 
     socket.on(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_START, async () => {
+      await user.reload();
+
       if (user.status !== USER_STATUS.IDLE) return;
 
       user.status = USER_STATUS.SEARCHING;
@@ -172,6 +180,8 @@ async function main() {
     });
 
     socket.on(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_END, async () => {
+      await user.reload();
+      
       if (user.status !== USER_STATUS.SEARCHING) return;
 
       user.status = USER_STATUS.IDLE;
@@ -180,8 +190,8 @@ async function main() {
     });
 
     socket.on('disconnecting', async () => {
-      await user.destroy();
-
+      await user.reload();
+      
       // canceling ongoing conversation if it exists
       const activeConversation = await ConversationModel.findOne({
         where: {
@@ -239,6 +249,8 @@ async function main() {
           },
         );
 
+        await user.destroy();
+
         cleanupConversationListeners(anotherParticipantId);
       }
 
@@ -246,11 +258,11 @@ async function main() {
     });
   });
 
-  function setMatchUsersTimeout () {
+  function setMatchUsersTimeout() {
     setTimeout(matchUsers, 3e3);
   }
 
-   async function matchUsers () {
+  async function matchUsers() {
     const [initiator, receiver] = await UserModel.findAll({
       where: {
         status: USER_STATUS.SEARCHING,
@@ -299,7 +311,7 @@ async function main() {
     );
 
     setMatchUsersTimeout();
-  };
+  }
 
   setMatchUsersTimeout();
 
