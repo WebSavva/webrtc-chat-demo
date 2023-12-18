@@ -217,13 +217,12 @@ function onToggleSearchConversation() {
 }
 
 function startListeningToServer() {
-  // if (import.meta.env.PROD) {
-  //   socket = io();
-  // } else {
-  //   socket = io('ws://127.0.0.1:3000');
-  // }
+  if (import.meta.env.PROD) {
+    socket = io();
+  } else {
+    socket = io('ws://127.0.0.1:3000');
+  }
   
-  socket = io('ws://127.0.0.1:3000');
   socket.on('connect', () => {
     isSocketConnected.value = true;
   });

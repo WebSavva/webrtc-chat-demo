@@ -18,6 +18,10 @@ import { User, database } from './database';
 const app = express();
 const httpServer = createServer(app);
 
+if (isProduction) {
+  app.use(express.static(join(__dirname, 'client')));
+}
+
 const CONVERSATION_SCOPE_EVENT_NAMES = [
   SOCKET_EVENT_NAME.CONVERSATION_OFFER,
   SOCKET_EVENT_NAME.CONVERSATION_ANSWER,
