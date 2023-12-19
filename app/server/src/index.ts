@@ -13,7 +13,6 @@ import {
 } from '@webrtc-chat/types';
 
 import { sequelize, UserModel, ConversationModel } from './models';
-import { User, database } from './database';
 
 async function main() {
   // ensuring database connection
