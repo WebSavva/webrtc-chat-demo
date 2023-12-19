@@ -1,5 +1,6 @@
 import { createServer } from 'http';
 import { join } from 'path';
+import { randomBytes } from 'crypto'
 
 import express from 'express';
 import { Op } from 'sequelize';
@@ -278,7 +279,7 @@ async function main() {
       return;
     }
 
-    const conversationId = `${initiator.id}-${receiver.id}`;
+    const conversationId = randomBytes(16).toString('hex');
 
     const conversation = await ConversationModel.create({
       id: conversationId,
