@@ -1,17 +1,17 @@
 <template>
   <div class="conversation">
     <div class="conversation__screens">
-      <span class="conversation__screens__screen">
+      <div class="conversation__screens__screen">
         <h3>Me</h3>
 
         <video ref="myScreen" autoplay playsinline />
-      </span>
+      </div>
 
-      <span class="conversation__screens__screen">
+      <div class="conversation__screens__screen">
         <h3>Partner</h3>
 
         <video ref="partnerScreen" autoplay playsinline />
-      </span>
+      </div>
     </div>
 
     <button
@@ -247,6 +247,9 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="stylus">
+
+$max-md = unquote("(max-width:900px)")
+
 .conversation
   display flex
   flex-direction column
@@ -259,14 +262,27 @@ onMounted(async () => {
     gap 1rem
     justify-content space-between
 
+    @media $max-md
+      flex-direction column
+      justify-content stretch
+
+
     &__screen
       flex 0 0 45%
+      width 45%
       display flex
       flex-direction column
+
+      @media $max-md
+        flex auto
+        width 100%
 
       h3
         font-size 2.2rem
         text-align center
+
+        @media $max-md
+          font-size 1.5rem
 
       video
         border-radius 15px
@@ -285,6 +301,12 @@ onMounted(async () => {
     border none
     cursor pointer
     width 20rem
+
+    @media $max-md
+      margin-top 3rem
+      font-size 1.5rem
+      height 4rem
+      width 70%
 
     &:disabled
       opacity .8
