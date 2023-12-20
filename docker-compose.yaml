@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  webrtc-chat-server:
+    restart: on-failure
+    build: .
+
+  nginx:
+    build: ./nginx
+    ports:
+    - '80:80'
+    depends_on:
+    - webrtc-chat-server
