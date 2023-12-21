@@ -4,5 +4,11 @@
   "description": "Demo WebRTC-based chat app",
   "keywords": [],
   "author": "WebSavva",
-  "license": "ISC"
+  "license": "ISC",
+  "scripts": {
+    "turbo": "turbo"
+  },
+  "devDependencies": {
+    "turbo": "^1.11.2"
+  }
 }
