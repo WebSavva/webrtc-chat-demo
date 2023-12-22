@@ -15,6 +15,8 @@ export default defineConfig((options) => {
     dts: false,
     clean: true,
 
+    target: 'esnext',
+
     env: {
       NODE_ENV: isDev ? 'development' : 'production',
     },

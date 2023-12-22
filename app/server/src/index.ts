@@ -259,7 +259,9 @@ async function main() {
   });
 
   function setMatchUsersTimeout() {
-    setTimeout(matchUsers, 3e3);
+    setTimeout(() => {
+      matchUsers()
+    }, 3e3);
   }
 
   async function matchUsers() {

@@ -5,15 +5,14 @@ module.exports = {
     browser: true,
   },
   extends: [
-    'plugin:vue/vue3-essential', // or 'plugin:vue/vue3-strongly-recommended' or 'plugin:vue/vue3-recommended'
+    'plugin:vue/vue3-essential',
     'eslint:recommended',
   ],
   parserOptions: {
-    parser: '@typescript-eslint/parser', // or '@babel/eslint-parser' or '@typescript-eslint/parser' if using TypeScript
+    parser: '@typescript-eslint/parser',
   },
   rules: {
-    // Override/add rules settings here, such as:
     'vue/no-unused-vars': 'error',
-    // 'no-unused-vars': 'warn',
+    'no-unused-vars': 'warn',
   },
 };
