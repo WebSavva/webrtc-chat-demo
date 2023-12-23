@@ -3,13 +3,9 @@
   "extends": ["//"],
   "pipeline": {
     "build": {
-      "inputs": [
-        "src/*",
-        "build/*",
-        "package.json",
-        "tsup.config.ts"
-      ],
+      "inputs": ["src/*", "build/*", "package.json", "tsup.config.ts"],
       "outputs": ["dist"]
-    }
+    },
+    "lint": {}
   }
 }
