@@ -1,17 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
+  "globalDependencies": [
+    "src/*",
+    "tsconfig.json",
+    "package.json",
+    "tsconfig.node.json",
+    "vite.config.ts"
+  ],
   "pipeline": {
     "build": {
-      "inputs": [
-        "src/*",
-        "public/*",
-        "tsconfig.json",
-        "package.json",
-        "tsconfig.node.json",
-        "vite.config.ts",
-        "index.html"
-      ],
+      "inputs": ["public/*", "index.html"],
       "outputs": ["dist"]
     },
     "lint": {}

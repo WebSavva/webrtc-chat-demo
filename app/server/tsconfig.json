@@ -18,5 +18,5 @@
     /* Linting */
     "strict": false,
   },
-  "include": ["src"]
+  "include": ["src", ".eslintrc.js"]
 }

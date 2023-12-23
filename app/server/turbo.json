@@ -1,9 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
+  "globalDependencies": ["src/*", "package.json"],
   "pipeline": {
     "build": {
-      "inputs": ["src/*", "build/*", "package.json", "tsup.config.ts"],
+      "inputs": ["tsup.config.ts"],
       "outputs": ["dist"]
     },
     "lint": {}
