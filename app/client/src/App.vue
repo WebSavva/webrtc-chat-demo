@@ -243,6 +243,8 @@ onMounted(async () => {
   await startMyScreenTranslation();
 
   startListeningToServer();
+
+  console.log('APP is mounted !');
 });
 </script>
 
