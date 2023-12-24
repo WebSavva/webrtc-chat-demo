@@ -21,20 +21,11 @@ RUN pnpm install
 # Copy the entire workspace
 COPY . .
 
-# Client build stage
-FROM base as client-build
-
-# Build the client application
-RUN pnpm --filter=client build
-
 # Server build stage
 FROM base
 
 # Build the server application
-RUN pnpm --filter=server build
-
-# Copy the built client app to the server's directory
-COPY --from=client-build /webrtc-chat/app/client/dist app/server/dist/client
+RUN pnpm turbo --filter=server build
 
 # Set the command to start the server
 CMD ["pnpm", "--filter=server", "start"]

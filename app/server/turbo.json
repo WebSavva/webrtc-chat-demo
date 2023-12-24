@@ -4,6 +4,7 @@
   "globalDependencies": ["src/*", "package.json"],
   "pipeline": {
     "build": {
+      "dependsOn": ["@webrtc-chat/client#build"],
       "inputs": ["tsup.config.ts"],
       "outputs": ["dist"]
     },

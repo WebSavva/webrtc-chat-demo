@@ -1,6 +1,7 @@
 import { createServer } from 'http';
-import { join } from 'path';
-import { randomBytes } from 'crypto'
+import { join, dirname } from 'path';
+import { randomBytes } from 'crypto';
+import { copy, ensureDir, remove } from 'fs-extra';
 
 import express from 'express';
 import { Op } from 'sequelize';
@@ -27,7 +28,17 @@ async function main() {
   const app = express();
   const httpServer = createServer(app);
 
+  // adding static files for client
   if (isProduction) {
+    const clientSrcPath = dirname(require.resolve('@webrtc-chat/client'));
+
+    const clientDestPath = join(__dirname, 'client');
+
+    await remove(clientDestPath);
+
+    await ensureDir(clientDestPath);
+    await copy(clientSrcPath, clientDestPath);
+
     app.use(express.static(join(__dirname, 'client')));
   }
 
@@ -91,7 +102,7 @@ async function main() {
 
     socket.once(SOCKET_EVENT_NAME.CONVERSATION_START, async () => {
       await activeConversation.reload();
-      
+
       activeConversation.status = CONVERTATION_STATUS.ACTIVE;
 
       await activeConversation.save();
@@ -181,7 +192,7 @@ async function main() {
 
     socket.on(SOCKET_EVENT_NAME.CONVERSATION_SEARCH_END, async () => {
       await user.reload();
-      
+
       if (user.status !== USER_STATUS.SEARCHING) return;
 
       user.status = USER_STATUS.IDLE;
@@ -191,7 +202,7 @@ async function main() {
 
     socket.on('disconnecting', async () => {
       await user.reload();
-      
+
       // canceling ongoing conversation if it exists
       const activeConversation = await ConversationModel.findOne({
         where: {
@@ -260,7 +271,7 @@ async function main() {
 
   function setMatchUsersTimeout() {
     setTimeout(() => {
-      matchUsers()
+      matchUsers();
     }, 3e3);
   }
 
