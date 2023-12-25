@@ -222,7 +222,7 @@ function startListeningToServer() {
   } else {
     socket = io('ws://127.0.0.1:3000');
   }
-  
+
   socket.on('connect', () => {
     isSocketConnected.value = true;
   });
@@ -243,9 +243,36 @@ onMounted(async () => {
   await startMyScreenTranslation();
 
   startListeningToServer();
-
-  console.log('APP is mounted !');
 });
+
+// initialization of global error handler
+function reportError(reason: string) {
+  return fetch('/analytics/error', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+
+    body: JSON.stringify({
+      reason,
+      userAgent: navigator.userAgent,
+    }),
+  }).catch((err: any) => console.error(err));
+}
+
+if (import.meta.env.PROD) {
+  window.onerror = (eventOrMessage) => {
+    const reason: string =
+      typeof eventOrMessage === 'string'
+        ? eventOrMessage
+        : (eventOrMessage as unknown as Error).message;
+
+    reportError(reason);
+  };
+
+  window.onunhandledrejection = ({ reason }) =>
+    reportError(reason instanceof Error ? reason.message : reason);
+}
 </script>
 
 <style scoped lang="stylus">
