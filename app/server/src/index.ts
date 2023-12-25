@@ -74,7 +74,7 @@ async function main() {
     app.get('/analytics/error', async (_, res) => {
       const allClientErrors = await ClientErrorModel.findAll();
 
-      return res.send(200).json(allClientErrors);
+      return res.status(200).json(allClientErrors);
     });
   }
 
