@@ -14,7 +14,13 @@ import {
   SOCKET_EVENT_NAME,
 } from '@webrtc-chat/types';
 
-import { sequelize, UserModel, ConversationModel } from './models';
+import {
+  sequelize,
+  UserModel,
+  ConversationModel,
+  ClientErrorModel,
+  ClientError,
+} from './models';
 
 async function main() {
   // ensuring database connection
@@ -26,21 +32,46 @@ async function main() {
 
   // server initialization
   const app = express();
+
   const httpServer = createServer(app);
 
-  // adding static files for client
   if (isProduction) {
+    // adding static files for client
     const clientSrcPath = dirname(require.resolve('@webrtc-chat/client'));
-
+    
     const clientDestPath = join(__dirname, 'client');
-
+    
     await remove(clientDestPath);
-
+    
     await ensureDir(clientDestPath);
     await copy(clientSrcPath, clientDestPath);
-
+    
     app.use(express.static(join(__dirname, 'client')));
+    
+    // endpoint for error reports saving 
+    app.use(express.json());
+  
+    app.post('/analytics/error', async (req, res) => {
+      const { reason = null, userAgent = null } = (req.body || {}) as Omit<
+        ClientError,
+        'id'
+      >;
+  
+      await ClientErrorModel.create({
+        reason: reason.toString(),
+        userAgent: userAgent.toString(),
+      }).catch((error: any) => {
+        console.error(
+          `[ClientError] saving has failed: ${
+            (error as unknown as Error).message
+          }`,
+        );
+      });
+  
+      res.status(201).send('ok');
+    });
   }
+
 
   const CONVERSATION_SCOPE_EVENT_NAMES = [
     SOCKET_EVENT_NAME.CONVERSATION_OFFER,
