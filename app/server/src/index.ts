@@ -19,7 +19,7 @@ import {
   UserModel,
   ConversationModel,
   ClientErrorModel,
-  ClientError,
+  type ClientError,
 } from './models';
 
 async function main() {
@@ -52,6 +52,8 @@ async function main() {
     app.use(express.json());
 
     app.post('/analytics/error', async (req, res) => {
+      const MAX_CLIENT_ERRORS_COUNT = 100;
+
       const { reason = null, userAgent = null } = (req.body || {}) as Omit<
         ClientError,
         'id'
@@ -67,6 +69,16 @@ async function main() {
           }`,
         );
       });
+
+      const allClientErrorsCount = await ClientErrorModel.count();
+
+      if (allClientErrorsCount > MAX_CLIENT_ERRORS_COUNT) {
+        const firstClientError = await ClientErrorModel.findOne({
+          order: [['createdAt', 'DESC']],
+        });
+
+        await firstClientError.destroy();
+      }
 
       res.status(201).send('ok');
     });
