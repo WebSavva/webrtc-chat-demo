@@ -8,9 +8,9 @@ const iceServers: RTCIceServer[] = [
 
 if (import.meta.env.PROD) {
   iceServers.push({
-    urls: `turn:${process.env.TURN_SERVER_HOSTNAME}:${process.env.TURN_SERVER_PORT}`,
-    username: process.env.TURN_SERVER_USERNAME,
-    credential: process.env.TURN_SERVER_PASSWORD,
+    urls: `turn:webrtc-chat-demo:3478`,
+    username: 'username',
+    credential: 'password',
   });
 }
 
