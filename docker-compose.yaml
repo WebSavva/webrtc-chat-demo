@@ -1,20 +1,20 @@
 version: '3.9'
 
 services:
-  turn-server:
-    image: instrumentisto/coturn
-    restart: always
-    command: -n --log-file=stdout
-      --min-port=49160
-      --max-port=49200
-      --external-ip=${TURN_SERVER_IP}
-      --realm=${TURN_SERVER_HOSTNAME}
-      --user=${TURN_SERVER_USERNAME}:${TURN_SERVER_PASSWORD}
-      --lt-cred-mech
-    ports:
-      - '${TURN_SERVER_PORT}:${TURN_SERVER_PORT}'
-      - '${TURN_SERVER_PORT}:${TURN_SERVER_PORT}/udp'
-      - '49160-49200:49160-49200/udp'
+  # turn-server:
+  #   image: instrumentisto/coturn
+  #   restart: always
+  #   command: -n --log-file=stdout
+  #     --min-port=49160
+  #     --max-port=49200
+  #     --external-ip=${TURN_SERVER_IP}
+  #     --realm=${TURN_SERVER_HOSTNAME}
+  #     --user=${TURN_SERVER_USERNAME}:${TURN_SERVER_PASSWORD}
+  #     --lt-cred-mech
+  #   ports:
+  #     - '${TURN_SERVER_PORT}:${TURN_SERVER_PORT}'
+  #     - '${TURN_SERVER_PORT}:${TURN_SERVER_PORT}/udp'
+  #     - '49160-49200:49160-49200/udp'
 
   webrtc-chat-server:
     restart: on-failure
