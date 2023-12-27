@@ -39,6 +39,9 @@ importers:
       eslint-plugin-vue:
         specifier: ^9.19.2
         version: 9.19.2(eslint@8.56.0)
+      std-env:
+        specifier: ^3.6.0
+        version: 3.6.0
       stylus:
         specifier: ^0.62.0
         version: 0.62.0
@@ -3119,7 +3122,6 @@ packages:
 
   /std-env@3.6.0:
     resolution: {integrity: sha512-aFZ19IgVmhdB2uX599ve2kE6BIE3YMnQ6Gp6BURhW/oIzpXGKr878TQfAQZn1+i0Flcc/UKUy1gOlcfaUBCryg==}
-    dev: false
 
   /string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}

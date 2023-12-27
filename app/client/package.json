@@ -6,7 +6,7 @@
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "NODE_ENV=production vue-tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint ./src --ext .vue,.ts"
   },
@@ -25,6 +25,7 @@
     "eslint-plugin-vue": "^9.19.2",
     "@typescript-eslint/parser": "^6.15.0",
     "vue-eslint-parser": "^9.3.2",
-    "@typescript-eslint/eslint-plugin": "^6.15.0"
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "std-env": "^3.6.0"
   }
 }
