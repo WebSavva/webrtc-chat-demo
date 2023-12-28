@@ -6,7 +6,7 @@ services:
     restart: always
     network_mode: 'host'
     volumes:
-      - ./ssl:/etc/letsencrypt/live/webrtc-chat-app-demo.site
+      - ./ssl/fullchain.pem:/etc/letsencrypt/live/webrtc-chat-app-demo.site/fullchain.pem
     command: -n --log-file=stdout
         --min-port=49160
         --max-port=49200

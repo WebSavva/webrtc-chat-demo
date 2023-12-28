@@ -29,6 +29,6 @@ jobs:
           cd /root/apps/webrtc-chat-demo
           git pull origin master
           mkdir -p ssl
-          cp -r /etc/letsencrypt/live/webrtc-chat-app-demo.site/* ./ssl
+          cp -rL /etc/letsencrypt/live/webrtc-chat-app-demo.site/* ./ssl
           docker-compose down
           docker-compose up --build -d
