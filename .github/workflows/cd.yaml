@@ -27,8 +27,8 @@ jobs:
           export TURN_SERVER_PASSWORD=${{ secrets.TURN_SERVER_PASSWORD }}
 
           cd /root/apps/webrtc-chat-demo
-          cp /etc/letsencrypt/live/webrtc-chat-app-demo.site/fullchain.pem ./nginx
-          cp /etc/letsencrypt/live/webrtc-chat-app-demo.site/privkey.pem ./nginx
           git pull origin master
+          mkdir -p ssl
+          cp /etc/letsencrypt/live/webrtc-chat-app-demo.site/ ./ssl
           docker-compose down
           docker-compose up --build -d

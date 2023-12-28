@@ -1,16 +1,16 @@
 import { shallowRef } from 'vue';
 
 const iceServers: RTCIceServer[] = [
-  // {
-  //   urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-  // },
+  {
+    urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+  },
 ];
 
 if (import.meta.env.PROD) {
-  iceServers.push({
-    urls: `turn:85.193.81.245:3478`,
-    username: 'username',
-    credential: 'password1234',
+  iceServers.unshift({
+    urls: `turn:${process.env.TURN_SERVER_HOSTNAME}:${process.env.TURN_SERVER_PORT}`,
+    username: process.env.TURN_SERVER_USERNAME,
+    credential: process.env.TURN_SERVER_PASSWORD,
   });
 }
 
