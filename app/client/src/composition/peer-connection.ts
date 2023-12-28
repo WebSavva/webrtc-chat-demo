@@ -1,16 +1,16 @@
 import { shallowRef } from 'vue';
 
 const iceServers: RTCIceServer[] = [
-  {
-    urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-  },
+  // {
+  //   urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+  // },
 ];
 
 if (import.meta.env.PROD) {
   iceServers.push({
-    urls: `turn:webrtc-chat-demo:3478`,
+    urls: `turn:85.193.81.245:3478`,
     username: 'username',
-    credential: 'password',
+    credential: 'password1234',
   });
 }
 
