@@ -24,12 +24,13 @@ services:
 
   webrtc-chat-server:
     restart: on-failure
-    args:
-      TURN_SERVER_HOSTNAME: ${TURN_SERVER_HOSTNAME}
-      TURN_SERVER_PORT: ${TURN_SERVER_PORT}
-      TURN_SERVER_USERNAME: ${TURN_SERVER_USERNAME}
-      TURN_SERVER_PASSWORD: ${TURN_SERVER_PASSWORD}
-    build: .
+    build:
+      context: .
+      args:
+        TURN_SERVER_HOSTNAME: ${TURN_SERVER_HOSTNAME}
+        TURN_SERVER_PORT: ${TURN_SERVER_PORT}
+        TURN_SERVER_USERNAME: ${TURN_SERVER_USERNAME}
+        TURN_SERVER_PASSWORD: ${TURN_SERVER_PASSWORD}
     depends_on:
       - webrtc-chat-turn-server
 
