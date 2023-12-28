@@ -6,7 +6,7 @@ services:
     restart: always
     network_mode: 'host'
     volumes:
-      - ./ssl/fullchain.pem:/etc/letsencrypt/live/webrtc-chat-app-demo.site/fullchain.pem
+      - ./ssl:/etc/letsencrypt/live/webrtc-chat-app-demo.site
     command: -n --log-file=stdout
         --min-port=49160
         --max-port=49200
@@ -24,7 +24,7 @@ services:
 
   webrtc-chat-server:
     restart: on-failure
-    environment:
+    args:
       TURN_SERVER_HOSTNAME: ${TURN_SERVER_HOSTNAME}
       TURN_SERVER_PORT: ${TURN_SERVER_PORT}
       TURN_SERVER_USERNAME: ${TURN_SERVER_USERNAME}
